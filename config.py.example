@@ -4,6 +4,7 @@ jira_pass = 'pass'
 jira_transition = 'Done'  # Transition to close issue. Read more https://jira.readthedocs.io/en/master/examples.html#transitions
 jira_project = 'ZBX'  # Your project key, for example "ZBX"
 jira_issue_type = 'Error'  # Your issue type in Jira project(Error, Bug, Epic ...)
+jira_verify = False  # True - do not ignore self signed certificates, False - ignore
 
 zbx_prefix = "zbx"  # variable for separating text from script info
 zbx_tmp_dir = "/tmp/" + zbx_prefix  # directory for saving caches, cookies, etc.

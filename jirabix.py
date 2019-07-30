@@ -9,26 +9,25 @@ import re
 import os
 import sqlite3
 
+
 # PARAMS RECEIVED FROM ZABBIX SERVER:
-# sys.argv[1] = TO
-# sys.argv[2] = SUBJECT
-# sys.argv[3] = BODY
+# sys.argv[1] = SUBJECT
+# sys.argv[2] = BODY
 
 
 def jira_login():
-    jira_server = {'server': config.jira_server}
+    jira_server = {'server': config.jira_server, 'verify': config.jira_verify}
     return JIRA(options=jira_server, basic_auth=(config.jira_user, config.jira_pass))
 
 
-def create_issue(to, tittle, body, project, issuetype, priority):
+def create_issue(title, body, project, issue_type, priority):
     jira = jira_login()
     issue_params = {
-            'project': {'key': project},
-            'summary': tittle,
-            'description': body,
-            'issuetype': {'name': issuetype},
-            'assignee': {'name': to},
-            'priority': {'id': priority}
+        'project': {'key': project},
+        'summary': title,
+        'description': body,
+        'issuetype': {'name': issue_type},
+        'priority': {'id': priority}
     }
     return jira.create_issue(fields=issue_params).key
 
@@ -49,7 +48,7 @@ def add_comment(issue, comment):
 
 
 def get_transition(issue_key):
-    jira_server = {'server': config.jira_server}
+    jira_server = {'server': config.jira_server, 'verify': config.jira_verify}
     jira = JIRA(options=jira_server, basic_auth=(config.jira_user, config.jira_pass))
     issue = jira.issue(issue_key)
     transitions = jira.transitions(issue)
@@ -60,7 +59,7 @@ def get_transition(issue_key):
 
 class ZabbixAPI:
     def __init__(self, server, username, password):
-        self.debug = False
+        self.debug = True
         self.server = server
         self.username = username
         self.password = password
@@ -74,8 +73,9 @@ class ZabbixAPI:
         req_cookie = requests.post(self.server + "/", data=data_api, proxies=self.proxies, verify=self.verify)
         cookie = req_cookie.cookies
         if len(req_cookie.history) > 1 and req_cookie.history[0].status_code == 302:
-            print_message("probably the server in your config file has not full URL (for example "
-                          "'{0}' instead of '{1}')".format(self.server, self.server + "/zabbix"))
+            print_message(
+                "probably the server in your config file has not full URL (for example ""'{0}' instead of '{1}')".format(
+                    self.server, self.server + "/zabbix"))
         if not cookie:
             print_message("authorization has failed, url: {0}".format(self.server + "/"))
             cookie = None
@@ -116,8 +116,8 @@ def main():
         os.makedirs(config.zbx_tmp_dir)
     tmp_dir = config.zbx_tmp_dir
 
-    # zbx_body = open('entry.txt', 'r').read()
-    zbx_body = sys.argv[3]
+#    zbx_body = open('entry.txt', 'r').read()
+    zbx_body = sys.argv[2]
 
     zbx = ZabbixAPI(server=config.zbx_server, username=config.zbx_api_user,
                     password=config.zbx_api_pass)
@@ -126,11 +126,10 @@ def main():
         zbx.proxies = {
             "http": "http://{0}/".format(config.proxy_to_zbx),
             "https": "https://{0}/".format(config.proxy_to_zbx)
-            }
+        }
 
     try:
-        zbx_api_verify = config.zbx_api_verify
-        zbx.verify = zbx_api_verify
+        zbx.verify = config.zbx_api_verify
     except:
         pass
 
@@ -170,7 +169,7 @@ def main():
 
     for line in zbx_body:
         if line.find(config.zbx_prefix) > -1:
-            setting = re.split("[\s\:\=]+", line, maxsplit=1)
+            setting = re.split("[\s:=]+", line, maxsplit=1)
             key = setting[0].replace(config.zbx_prefix + ";", "")
             if len(setting) > 1 and len(setting[1]) > 0:
                 value = setting[1]
@@ -184,7 +183,6 @@ def main():
     trigger_ok = int(settings['zbx_ok'])
     trigger_id = int(settings['zbx_triggerid'])
 
-    # print(os.path.join(os.path.dirname(__file__), 'test.db'))
     conn = sqlite3.connect(os.path.join(os.path.dirname(__file__), 'jirabix.db'))
     c = conn.cursor()
     c.execute('''CREATE TABLE if not exists events
@@ -192,15 +190,12 @@ def main():
     conn.commit()
     c.execute('SELECT issue_key FROM events WHERE trigger_id=?', (trigger_id,))
     result = c.fetchall()
-    # print(result)
     priority = "5"
     if not result and trigger_ok == 0:
         for i in trigger_desc.values():
             if i['name'] == settings['zbx_priority']:
                 priority = i.get('id')
-
-        issue_key = create_issue(sys.argv[1], sys.argv[2], '\n'.join(zbx_body_text), config.jira_project,
-                                 config.jira_issue_type, priority)
+        issue_key = create_issue(sys.argv[1], '\n'.join(zbx_body_text), config.jira_project, config.jira_issue_type, priority)
         zbx.login()
         if not zbx.cookie:
             print_message("Login to Zabbix web UI has failed, check manually...")
@@ -215,12 +210,12 @@ def main():
                 os.remove(zbx_file_img)
         c.execute("INSERT INTO events VALUES (?, ?);", (trigger_id, issue_key))
         conn.commit()
+
     elif not result and trigger_ok == 1:
         pass
     else:
         issue_key = result[0][0]
         add_comment(issue_key, '\n'.join(zbx_body_text))
-        close_issue(issue_key, get_transition(issue_key))
         c.execute('DELETE FROM events WHERE trigger_id=?', (trigger_id,))
         conn.commit()
         conn.close()

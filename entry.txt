@@ -1,11 +1,12 @@
-Last value:134148 (2017-05-05)
-zbxtg;graphs
-zbxtg;graphs_period=1800
-zbxtg;itemid:134148
-zbxtg;priority:Warning
-zbxtg;triggerid:54321
-zbxtg;title:Test - test
-Server: Test (127.0.0.1)
+zbx;graphs
+zbx;graphs_period=1800
+zbx;itemid:33502
+zbx;triggerid:18579
+zbx;title:cdopla-538.bell.corp.bce.ca - 90% mem Heap Memory used on Artifactory/Maven Prod current
+zbx;priority:Average
+||Last value|3.61 GB (10:18:48)||
+||Server|cdopla-538.bell.corp.bce.ca (10.36.102.19)||
 
-Desc:
-Desc test
+{panel:title=Description}
+Description text
+{panel}
